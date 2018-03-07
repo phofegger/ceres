@@ -12,6 +12,7 @@ add_cols = config['Files']['ignore_columns'].split(', ')
 strip_cols = config['Options'].getboolean('strip_cols')
 combine_loop = config['Options'].getboolean('combine_loops')
 remove_outlier = config['Options'].getboolean('remove_outlier')
+reverse_polarity = ~config['Setup'].getboolean('pol')
 
 skip_data = config['Files'].getint('skip_data')
 max_nest_depth = config['Options'].getint('max_depth')
@@ -62,6 +63,8 @@ for r in Ryx:
 	ind = [i for i, l in enumerate(names) for m in [regex.search(l)] if m]
 	if len(ind) == 0:
 		raise UserWarning("Invalid channel setup")
+	if reverse_polarity:
+		data[:,ind] *= -1.
 
 # remove to outliers using IQR method due to big absolute value difference, relative error would be better f.e. big MR values
 if remove_outlier:
