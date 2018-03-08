@@ -7,30 +7,40 @@ from scipy.optimize import curve_fit
 config = configparser.ConfigParser(inline_comment_prefixes='#')
 config.read('config.ini')
 
+q = config['Analyzer'].getfloat('q')
 rxx = map(int, config['Setup']['rxx'].replace(' ','').split(','))
 ryx = map(int, config['Setup']['ryx'].replace(' ','').split(','))
 show = config['Analyzer'].getboolean('show')
-work_folder = '../ppms_import/first/'
+work_folder = '../ppms_import/first/' # TODO folder?
 
+# helper functions
+def getAllIndex(col_names, label):
+	regex = re.compile('.*'+label+'.*')
+	return [i for i, l in enumerate(col_names) for m in [regex.search(l)] if m]
+
+def maskCurrent(data, indExc, indTmp):
+	if restrictCurr:
+		max_ind = np.argmin(np.abs(np.mean(data[:,indTmp])-temp))
+		return data[data[:,indExc] <= exc[max_ind],:]
+	else:
+		return data
+
+# TODO make plots better? low priority
 # analyze IV curves to find best excitation current (can be temperature dependent), diff B in diff files, also applies to ryx
-# TODO if no file just allow all
+restrictCurr = False
 for file in glob.glob(work_folder+'*IV*'):
 	func = lambda x, c0: c0
 	with open(file) as fh:
 		names = fh.next().split(',')
 		comment = fh.next()[2:].split(',')
 
-	# TODO make function to shorten the index finding
-	regex = re.compile(".*(Temp).*")
-	ind_t = [i for i, l in enumerate(names) for m in [regex.search(l)] if m]
-	regex = re.compile(".*(Bridge %d E).*"%(rxx[0]))
-	ind_e = [i for i, l in enumerate(names) for m in [regex.search(l)] if m]
-	regex = re.compile(".*(Bridge %d )(S|R).*"%(rxx[0]))
-	ind_r = [i for i, l in enumerate(names) for m in [regex.search(l)] if m]
+	# get right column indices
+	ind_t = getAllIndex(names, '(Temp)')
+	ind_e = getAllIndex(names, '(Bridge %d E)'%(rxx[0]))
+	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(rxx[0]))
 
 	data = np.genfromtxt(file, delimiter=',')
-
-	temp, exc, res, resStd = [np.zeros((len(ind_e))) for i in range(4)]
+	temp, exc, res, resStd = [np.zeros((len(ind_e))) for i in range(4)] # TODO give better names to avoid replacing
 	minE = 3 # min excitation
 	for i in range(len(ind_e)):
 		indExc = ind_e[i]
@@ -58,6 +68,8 @@ for file in glob.glob(work_folder+'*IV*'):
 				res[i] = arrR[l]
 				resStd[i] = arrS[l]
 				break
+
+	restrictCurr = True
 	if show:
 		plt.plot(temp, res)
 		plt.show()
@@ -81,42 +93,53 @@ else:
 		names = fh.next().split(',')
 		comment = fh.next()[2:].split(',')
 
-	regex = re.compile(".*(Temp).*")
-	ind_t = [i for i, l in enumerate(names) for m in [regex.search(l)] if m]
-	regex = re.compile(".*(Magnetic).*")
-	ind_b = [i for i, l in enumerate(names) for m in [regex.search(l)] if m]
-	regex = re.compile(".*(Bridge %d E).*"%(ryx[0]))
-	ind_e = [i for i, l in enumerate(names) for m in [regex.search(l)] if m]
-	regex = re.compile(".*(Bridge %d )(S|R).*"%(ryx[0]))
-	ind_r = [i for i, l in enumerate(names) for m in [regex.search(l)] if m]
+	# get right column indices
+	ind_t = getAllIndex(names, '(Temp)')
+	ind_b = getAllIndex(names, '(Magnetic)')
+	ind_e = getAllIndex(names, '(Bridge %d E)'%(ryx[0]))
+	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(ryx[0]))
+	
 	data = np.genfromtxt(file, delimiter=',')
-
-	# TODO find better names :)
-	c1_arr, c1s_arr, c1t_arr = [np.zeros((len(ind_e))) for z in range(3)]
+	func = lambda x, c0, c1: c0+c1*x
+	tmp, c0, c1, c0_std, c1_std, rsq = [np.zeros((len(ind_e))) for z in range(6)]
 	for i in range(len(ind_e)):
-		indExc = ind_e[i]
-		indTmp = ind_t[i]
-		indB = ind_b[i]
+		indTmp, indB, indExc = ind_t[i], ind_b[i], ind_e[i]
 		indRes, indRst = ind_r[2*i], ind_r[2*i+1]
 
-		mask = ~np.isnan(data[:,indExc])
-		mdata = data[mask,:]
-		# TODO make function probably
-		max_ind = np.argmin(np.abs(np.mean(mdata[:,indTmp])-temp))
-		mask = mdata[:,indExc] <= exc[max_ind]
-		mmdata = mdata[mask,:]
+		mdata = data[~np.isnan(data[:,indExc]),:]
+		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values
 
-		s_ind = np.argmin(np.abs(mmdata[:,indB]-maxB))
-		e_ind = np.argmin(np.abs(mmdata[:,indB]+maxB))
+		s_ind = np.argmin(np.abs(mdata[:,indB]-maxB))
+		e_ind = np.argmin(np.abs(mdata[:,indB]+maxB))
 
-		# TODO move to better location
-		func = lambda x, c0, c1: c0+c1*x
-		popt, pcov = curve_fit(func, mmdata[s_ind:e_ind,indB], mmdata[s_ind:e_ind,indRes], sigma=mmdata[s_ind:e_ind,indRst])
+		popt, pcov = curve_fit(func, mdata[s_ind:e_ind,indB], mdata[s_ind:e_ind,indRes], sigma=mdata[s_ind:e_ind,indRst])
 		pstd = np.diag(pcov)**0.5
+		tmp[i] = np.mean(mdata[:,indTmp])
+		c0[i], c0_std[i] = popt[0], pstd[0]
+		c1[i], c1_std[i] = popt[1], pstd[1]
 
-		c1t_arr[i] = np.mean(mmdata[:,indTmp])
-		c1_arr[i] = popt[1]
-		c1s_arr[i] = pstd[1]
+		yh = func(mdata[s_ind:e_ind,indB],*popt)
+		yi = mdata[s_ind:e_ind,indRes]
+		ybar = np.mean(yi)/len(yi)
+		rsq[i] = np.sum((yh-ybar)**2)/np.sum((yi-ybar)**2) # R^2 value
+	
+	c0_to_max = np.abs(c0/np.nanmax(data[:,[ind_r[2*l] for l in range(len(ind_e))]], axis=0))
+	print 'Mean Hall offset ratio c0/max(ryx)=%.3f'%(np.mean(c0_to_max))
 
-	plt.plot(c1t_arr, 1/(c1_arr*1.6022e-19)*1e-6)
-	plt.show()
+	n = 1./(c1*q)*1e-6
+	dn = (-1./(q*c1**2))*c1_std*1e-6
+	if np.mean(n) < 0.0:
+		print 'Carrier type: hole'
+		n *= -1
+	else:
+		print 'Carrier type: electron'
+
+	if show:
+		plt.plot(tmp, c1)
+		plt.show()
+		plt.errorbar(tmp, n, yerr=dn, fmt='o')
+		plt.show()
+
+	header = 'Temperature (K),Hall Coefficient (1/m^2),Hall Coefficient Std (1/m^2),Carrier Density (1/cm^3),Carrier Density Std (1/cm^3)'
+	#np.savetxt('final.data', np.vstack((tmp, c1, c1_std, n, dn)).T, header=header, delimiter=',')
+
