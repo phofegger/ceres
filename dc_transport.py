@@ -2,6 +2,7 @@ import numpy as np
 import re, os, glob, configparser
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from scipy.interpolate import interp1d
 
 # read settings from config file
 config = configparser.ConfigParser(inline_comment_prefixes='#')
@@ -31,6 +32,7 @@ restrictCurr = False
 for file in glob.glob(work_folder+'*IV*'):
 	func = lambda x, c0: c0
 	with open(file) as fh:
+		fh.next() # TODO maybe needed
 		names = fh.next().split(',')
 		comment = fh.next()[2:].split(',')
 
@@ -54,7 +56,7 @@ for file in glob.glob(work_folder+'*IV*'):
 		if len(glob.glob(work_folder+'*IV*')) == 1:
 			arrE, arrR, arrS = [np.zeros((mdata.shape[0]-minE)) for z in range(3)]
 		else:
-			pass # if IV curves at diff B, dont think so
+			pass # if IV curves at diff B, dont think so TODO
 		for l in range(minE, len(arrE)):			
 			popt, pcov = curve_fit(func, mdata[:l,indExc], mdata[:l,indRes], sigma=mdata[:l,indRst])
 			pstd = np.diag(pcov)**0.5
@@ -62,7 +64,7 @@ for file in glob.glob(work_folder+'*IV*'):
 
 		avg_std = np.mean(arrS)
 		for l in range(len(arrE)-1, minE-1, -1):
-			if arrS[l] < 1.5*avg_std:
+			if arrS[l] < 1.5*avg_std: 		# TODO integrate into config?
 				temp[i] = tmp
 				exc[i] = arrE[l]
 				res[i] = arrR[l]
@@ -90,6 +92,7 @@ else:
 	file = Bfiles[0]
 
 	with open(file) as fh:
+		fh.next() # TODO maybe needed
 		names = fh.next().split(',')
 		comment = fh.next()[2:].split(',')
 
@@ -134,12 +137,50 @@ else:
 	else:
 		print 'Carrier type: electron'
 
+	# use iv-res to calculate muh
+	print tmp.shape, temp.shape # TODO IV counts and bcounts are different so damn
+
 	if show:
 		plt.plot(tmp, c1)
 		plt.show()
 		plt.errorbar(tmp, n, yerr=dn, fmt='o')
 		plt.show()
 
+
 	header = 'Temperature (K),Hall Coefficient (1/m^2),Hall Coefficient Std (1/m^2),Carrier Density (1/cm^3),Carrier Density Std (1/cm^3)'
 	#np.savetxt('final.data', np.vstack((tmp, c1, c1_std, n, dn)).T, header=header, delimiter=',')
 
+"""
+# analyze resistivity
+Tfiles = sorted(glob.glob(work_folder+'*Tscan*'), key=lambda x: float(x[x.rfind('/')+1:x.rfind('T_')]))
+if len(Tfiles) == 0:		# TODO do nothing lel
+	pass
+elif len(Tfiles) == 1:		# all in one file
+	pass # TODO
+else:
+	for x in Tfiles:
+		with open(x) as fh:
+			loop = fh.next().split(' ')[1:]
+			var, start, end, steps, mode, lc = [fun(loop[i]) for i, fun in enumerate([str, float, float, int, int , int])]
+			names = fh.next()[2:].split(',')
+
+		data = np.genfromtxt(x, comments='#', delimiter=',')
+		indT = getAllIndex(names, '(Temperature)')[0]
+		indB = getAllIndex(names, '(Magnetic)')[0]
+		indR = getAllIndex(names, '(Bridge %d R)'%(rxx[0]))[0]
+		indE = getAllIndex(names, '(Bridge %d E)'%(rxx[0]))[0]
+		mdata = data[~np.isnan(data[:,indE]),:]
+		exc *= 0.7 # cause very temperature sensitive at low K see curve splitting TODO maybe show plot to better illustrate point
+		mdata = maskCurrent(mdata, indE, indT)
+		exc /= 0.7
+		#plt.plot(mdata[:,indT], mdata[:,indR], '.', label='%fT'%(np.nanmean(data[:,indB])))
+
+		if np.abs(np.mean(mdata[:,indB])) < 0.01:
+			print "We no field baby"
+			plt.plot(mdata[:,indT], mdata[:,indR], '.', label='%fT'%(np.nanmean(data[:,indB])))
+			
+
+		plt.legend()
+		plt.show()
+	#data = np.hstack([np.genfromtxt(x, comments='#', delimiter=',') for x in Tfiles])
+"""

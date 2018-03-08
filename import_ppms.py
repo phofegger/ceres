@@ -25,7 +25,7 @@ outlier_perc = config['Options'].getfloat('outlier_perc')
 T = config['Options'].getfloat('T')
 B = config['Options'].getfloat('B')
 
-# determine data file structure
+# determine data file structure TODO make uniform labels for scans
 start_data = 0
 with open(path_data, 'r') as file:
 	for line in file:
@@ -131,10 +131,13 @@ def search_loop(fo, depth):
 					cdata = data[ind:ind+count]
 					if cl:
 						cdata = np.hstack(np.vsplit(cdata, steps))
-						commentline = ','.join([item for sublist in [names]*steps for item in sublist])
+						commentline = '%s %f %f %d %d %d'%(comment, start, end, steps, mode, lc/steps)
+						commentline += '\n'+','.join([item for sublist in [names]*steps for item in sublist])
 						commentline += '\n'+','.join([item for sublist in [['%.1f%s'%(x, {'T': 'K', 'B': 'T'}[com[2]])]*cols for x in points] for item in sublist])
 					else:
-						commentline = ','.join(names)
+						commentline = '%s %f %f %d %d %d'%(comment, start, end, steps, mode, lc/steps)
+						commentline += '\n'+','.join(names)
+						commentline += '\n'
 					filename = '%s/%s.dat'%(data_folder,'%.1f%s_%s'%(var[com[2]][0],var[com[2]][1],comment))
 					np.savetxt(filename, cdata, header=commentline, delimiter=',')
 					for line in fileinput.input(filename, inplace=True):
