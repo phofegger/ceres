@@ -66,7 +66,7 @@ for r in Ryx:
 	if reverse_polarity:
 		data[:,ind] *= -1.
 
-# remove to outliers using IQR method due to big absolute value difference, relative error would be better f.e. big MR values
+# remove the outliers using IQR method due to big absolute value difference, relative error would be better f.e. big MR values
 if remove_outlier:
 	tot = 0
 	for i, name in enumerate(names):

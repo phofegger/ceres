@@ -64,7 +64,7 @@ for file in glob.glob(work_folder+'*IV*'):
 
 		avg_std = np.mean(arrS)
 		for l in range(len(arrE)-1, minE-1, -1):
-			if arrS[l] < 1.5*avg_std: 		# TODO integrate into config?
+			if arrS[l] < 1.7*avg_std: 		# TODO integrate into config?
 				temp[i] = tmp
 				exc[i] = arrE[l]
 				res[i] = arrR[l]
@@ -73,11 +73,13 @@ for file in glob.glob(work_folder+'*IV*'):
 
 	restrictCurr = True
 	if show:
-		plt.plot(temp, res)
-		plt.show()
-		plt.plot(temp, exc)
-		plt.xlim([np.min(temp), np.max(temp)])
-		plt.ylim([0,np.max(exc)*1.1])
+		fig, ax = plt.subplots()
+		ax.plot(temp, exc, 'o')
+		ax.set_xlim([np.min(temp), np.max(temp)])
+		ax.set_ylim([0,np.max(exc)*1.1])
+		ax.set_title('Maximum allowed excitation current')
+		ax.set_xlabel('Temperature (K)')
+		ax.set_ylabel(r'max. excitation current ($\mu A$)')
 		plt.show()
 
 # analyze Hall measurements
@@ -95,6 +97,7 @@ else:
 		fh.next() # TODO maybe needed
 		names = fh.next().split(',')
 		comment = fh.next()[2:].split(',')
+	data = np.genfromtxt(file, delimiter=',')
 
 	# get right column indices
 	ind_t = getAllIndex(names, '(Temp)')
@@ -102,7 +105,6 @@ else:
 	ind_e = getAllIndex(names, '(Bridge %d E)'%(ryx[0]))
 	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(ryx[0]))
 	
-	data = np.genfromtxt(file, delimiter=',')
 	func = lambda x, c0, c1: c0+c1*x
 	tmp, c0, c1, c0_std, c1_std, rsq = [np.zeros((len(ind_e))) for z in range(6)]
 	for i in range(len(ind_e)):
@@ -110,7 +112,9 @@ else:
 		indRes, indRst = ind_r[2*i], ind_r[2*i+1]
 
 		mdata = data[~np.isnan(data[:,indExc]),:]
+		exc /= 0.6
 		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values
+		exc *= 0.6
 
 		s_ind = np.argmin(np.abs(mdata[:,indB]-maxB))
 		e_ind = np.argmin(np.abs(mdata[:,indB]+maxB))
@@ -138,7 +142,36 @@ else:
 		print 'Carrier type: electron'
 
 	# use iv-res to calculate muh
-	print tmp.shape, temp.shape # TODO IV counts and bcounts are different so damn
+	int_res, int_res_std = [np.zeros((len(tmp))) for z in range(2)]
+	int_res[1:-1] = interp1d(temp, res, kind='linear')(tmp[1:-1])
+	int_res_std[1:-1] = interp1d(temp, resStd, kind='linear')(tmp[1:-1])
+	int_res[0], int_res[-1] = res[-1], res[0]
+	int_res_std[0], int_res_std[-1] = resStd[-1], resStd[0]
+
+	muh = (-c1/int_res)*1e4
+	dmuh = ((1./int_res)*c1_std+(+c1/int_res**2)*int_res_std)*1e4
+	
+	header = 'Temperature (K),Resistivity (mOhm*cm),Resistivity Std (mOhm*cm),Hall Coefficient (1/cm^2),Hall Coefficient Std (1/cm^2)'
+	header += ',Carrier Density (1/cm^3),Carrier Density Std (1/cm^3),Hall Mobility (cm^2/V*s),Hall Mobility Std (cm^2/V*s)'
+	#np.savetxt('final.dat', np.vstack((tmp, int_res*1e5, int_res_std*1e5, -c1*1e-4, c1_std*1e-4, n, dn, muh, dmuh)).T, header=header, delimiter=',')
+
+	# magnetoresistivity ????
+	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(rxx[0]))
+	for i in range(len(ind_e)):
+		indTmp, indB, indExc = ind_t[i], ind_b[i], ind_e[i]
+		indRes, indRst = ind_r[2*i], ind_r[2*i+1]
+
+		mdata = data[~np.isnan(data[:,indExc]),:]
+		exc /= 0.8
+		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values
+		exc *= 0.8
+
+		plt.plot(mdata[:,indB], mdata[:,indRes], 'o', label='%f'%(mdata[0,indTmp]))
+		plt.legend()
+		plt.show()
+
+	plt.errorbar(tmp, muh, yerr=dmuh, fmt='o')
+	plt.show()
 
 	if show:
 		plt.plot(tmp, c1)
@@ -147,10 +180,6 @@ else:
 		plt.show()
 
 
-	header = 'Temperature (K),Hall Coefficient (1/m^2),Hall Coefficient Std (1/m^2),Carrier Density (1/cm^3),Carrier Density Std (1/cm^3)'
-	#np.savetxt('final.data', np.vstack((tmp, c1, c1_std, n, dn)).T, header=header, delimiter=',')
-
-"""
 # analyze resistivity
 Tfiles = sorted(glob.glob(work_folder+'*Tscan*'), key=lambda x: float(x[x.rfind('/')+1:x.rfind('T_')]))
 if len(Tfiles) == 0:		# TODO do nothing lel
@@ -170,17 +199,15 @@ else:
 		indR = getAllIndex(names, '(Bridge %d R)'%(rxx[0]))[0]
 		indE = getAllIndex(names, '(Bridge %d E)'%(rxx[0]))[0]
 		mdata = data[~np.isnan(data[:,indE]),:]
-		exc *= 0.7 # cause very temperature sensitive at low K see curve splitting TODO maybe show plot to better illustrate point
+		exc *= 0.6 # cause very temperature sensitive at low K see curve splitting TODO maybe show plot to better illustrate point
 		mdata = maskCurrent(mdata, indE, indT)
-		exc /= 0.7
+		exc /= 0.6
 		#plt.plot(mdata[:,indT], mdata[:,indR], '.', label='%fT'%(np.nanmean(data[:,indB])))
 
-		if np.abs(np.mean(mdata[:,indB])) < 0.01:
-			print "We no field baby"
-			plt.plot(mdata[:,indT], mdata[:,indR], '.', label='%fT'%(np.nanmean(data[:,indB])))
+		#if np.abs(np.mean(mdata[:,indB])) < 0.01:
+		plt.plot(mdata[:,indT], mdata[:,indR], '.', label='%fT'%(np.nanmean(data[:,indB])))
 			
 
-		plt.legend()
-		plt.show()
+	plt.legend()
+	plt.show()
 	#data = np.hstack([np.genfromtxt(x, comments='#', delimiter=',') for x in Tfiles])
-"""
