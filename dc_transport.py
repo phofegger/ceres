@@ -12,7 +12,9 @@ q = config['Analyzer'].getfloat('q')
 rxx = map(int, config['Setup']['rxx'].replace(' ','').split(','))
 ryx = map(int, config['Setup']['ryx'].replace(' ','').split(','))
 show = config['Analyzer'].getboolean('show')
-work_folder = '../ppms_import/first/' # TODO folder?
+work_folder = '../ppms_import/20180217_TlBiS2_nodope/high_temp/' # TODO folder?
+min_exc = 900.	# TODO streamline that shit
+# TODO add sample dimensions to folders
 
 # helper functions
 def getAllIndex(col_names, label):
@@ -22,13 +24,13 @@ def getAllIndex(col_names, label):
 def maskCurrent(data, indExc, indTmp):
 	if restrictCurr:
 		max_ind = np.argmin(np.abs(np.mean(data[:,indTmp])-temp))
-		return data[data[:,indExc] <= exc[max_ind],:]
+		return data[(data[:,indExc] <= exc[max_ind]) & (data[:,indExc] >= min_exc),:]
 	else:
 		return data
 
 # TODO make plots better? low priority
 # analyze IV curves to find best excitation current (can be temperature dependent), diff B in diff files, also applies to ryx
-restrictCurr = False
+restrictCurr = False	# TODO make restrictCurr optional
 for file in glob.glob(work_folder+'*IV*'):
 	func = lambda x, c0: c0
 	with open(file) as fh:
@@ -64,14 +66,14 @@ for file in glob.glob(work_folder+'*IV*'):
 
 		avg_std = np.mean(arrS)
 		for l in range(len(arrE)-1, minE-1, -1):
-			if arrS[l] < 1.7*avg_std: 		# TODO integrate into config?
+			if arrS[l] < 1.5*avg_std: 		# TODO integrate into config?
 				temp[i] = tmp
-				exc[i] = arrE[l]
+				exc[i] = 1100.#arrE[l]		# TODO change to a fixed if desired
 				res[i] = arrR[l]
 				resStd[i] = arrS[l]
 				break
 
-	restrictCurr = True
+	restrictCurr = True	# TODO include in config
 	if show:
 		fig, ax = plt.subplots()
 		ax.plot(temp, exc, 'o')
@@ -85,7 +87,8 @@ for file in glob.glob(work_folder+'*IV*'):
 # analyze Hall measurements
 # TODO define labels such as Bscan, ....
 Bfiles = glob.glob(work_folder+'*Bscan*')
-maxB = config['Analyzer'].getfloat('maxB')
+bRange = map(float, config['Analyzer']['bRange'].split(','))
+
 if len(Bfiles) != 1:
 	pass # somehow combine them so i can do it in one go
 elif len(Bfiles) == 0:
@@ -112,12 +115,16 @@ else:
 		indRes, indRst = ind_r[2*i], ind_r[2*i+1]
 
 		mdata = data[~np.isnan(data[:,indExc]),:]
-		exc /= 0.6
+		#exc /= 0.6
 		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values
-		exc *= 0.6
+		#exc *= 0.6
 
-		s_ind = np.argmin(np.abs(mdata[:,indB]-maxB))
-		e_ind = np.argmin(np.abs(mdata[:,indB]+maxB))
+		s_ind = np.argmin(np.abs(mdata[:,indB]-bRange[1])) # TODO maybe seperate left and right border
+		e_ind = np.argmin(np.abs(mdata[:,indB]+bRange[0]))
+
+		plt.plot(mdata[s_ind:e_ind,indB], mdata[s_ind:e_ind, indRes],'o')
+		plt.title("%f"%(mdata[0,indTmp]))
+		plt.show()
 
 		popt, pcov = curve_fit(func, mdata[s_ind:e_ind,indB], mdata[s_ind:e_ind,indRes], sigma=mdata[s_ind:e_ind,indRst])
 		pstd = np.diag(pcov)**0.5
@@ -132,6 +139,7 @@ else:
 	
 	c0_to_max = np.abs(c0/np.nanmax(data[:,[ind_r[2*l] for l in range(len(ind_e))]], axis=0))
 	print 'Mean Hall offset ratio c0/max(ryx)=%.3f'%(np.mean(c0_to_max))
+	print c1, c1_std
 
 	n = 1./(c1*q)*1e-6
 	dn = (-1./(q*c1**2))*c1_std*1e-6
@@ -148,12 +156,12 @@ else:
 	int_res[0], int_res[-1] = res[-1], res[0]
 	int_res_std[0], int_res_std[-1] = resStd[-1], resStd[0]
 
-	muh = (-c1/int_res)*1e4
-	dmuh = ((1./int_res)*c1_std+(+c1/int_res**2)*int_res_std)*1e4
+	muh = (-c1/int_res)
+	dmuh = ((1./int_res)*c1_std+(+c1/int_res**2)*int_res_std)
 	
-	header = 'Temperature (K),Resistivity (mOhm*cm),Resistivity Std (mOhm*cm),Hall Coefficient (1/cm^2),Hall Coefficient Std (1/cm^2)'
+	header = 'Temperature (K),Resistivity (mOhm*cm),Resistivity Std (mOhm*cm),Hall Coefficient (Ohm*cm/T),Hall Coefficient Std (Ohm*m/T)'
 	header += ',Carrier Density (1/cm^3),Carrier Density Std (1/cm^3),Hall Mobility (cm^2/V*s),Hall Mobility Std (cm^2/V*s)'
-	#np.savetxt('final.dat', np.vstack((tmp, int_res*1e5, int_res_std*1e5, -c1*1e-4, c1_std*1e-4, n, dn, muh, dmuh)).T, header=header, delimiter=',')
+	np.savetxt(work_folder + 'final.dat', np.vstack((tmp, int_res*1e5, int_res_std*1e5, -c1*1e2, c1_std*1e2, n, dn, muh*1e4, dmuh*1e4)).T, header=header, delimiter=',')
 
 	# magnetoresistivity ????
 	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(rxx[0]))
@@ -166,9 +174,9 @@ else:
 		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values
 		exc *= 0.8
 
-		plt.plot(mdata[:,indB], mdata[:,indRes], 'o', label='%f'%(mdata[0,indTmp]))
-		plt.legend()
-		plt.show()
+		#plt.plot(mdata[:,indB], mdata[:,indRes], 'o', label='%f'%(mdata[0,indTmp]))
+		#plt.legend()
+		#plt.show()
 
 	plt.errorbar(tmp, muh, yerr=dmuh, fmt='o')
 	plt.show()
@@ -205,9 +213,9 @@ else:
 		#plt.plot(mdata[:,indT], mdata[:,indR], '.', label='%fT'%(np.nanmean(data[:,indB])))
 
 		#if np.abs(np.mean(mdata[:,indB])) < 0.01:
-		plt.plot(mdata[:,indT], mdata[:,indR], '.', label='%fT'%(np.nanmean(data[:,indB])))
+		#plt.plot(mdata[:,indT], mdata[:,indR], '.', label='%fT'%(np.nanmean(data[:,indB])))
 			
 
-	plt.legend()
-	plt.show()
+	#plt.legend()
+	#plt.show()
 	#data = np.hstack([np.genfromtxt(x, comments='#', delimiter=',') for x in Tfiles])

@@ -25,6 +25,7 @@ outlier_perc = config['Options'].getfloat('outlier_perc')
 T = config['Options'].getfloat('T')
 B = config['Options'].getfloat('B')
 
+# TODO also make sample dimen a folder specif?
 # determine data file structure TODO make uniform labels for scans
 start_data = 0
 with open(path_data, 'r') as file:
