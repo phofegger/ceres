@@ -8,13 +8,13 @@ from scipy.interpolate import interp1d
 config = configparser.ConfigParser(inline_comment_prefixes='#')
 config.read('config.ini')
 
-q = config['Analyzer'].getfloat('q')
 rxx = map(int, config['Setup']['rxx'].replace(' ','').split(','))
 ryx = map(int, config['Setup']['ryx'].replace(' ','').split(','))
-show = config['Analyzer'].getboolean('show')
-work_folder = '../ppms_import/20180217_TlBiS2_nodope/high_temp/' # TODO folder?
-min_exc = 900.	# TODO streamline that shit
-# TODO add sample dimensions to folders
+work_folder = os.path.splitext(config['Files']['data'])[0] + '/'
+q = config['Analyzer'].getfloat('q')
+show = config['Options'].getboolean('show')
+min_exc = config['Analyzer'].getfloat('min_exc')
+
 
 # helper functions
 def getAllIndex(col_names, label):
@@ -22,7 +22,7 @@ def getAllIndex(col_names, label):
 	return [i for i, l in enumerate(col_names) for m in [regex.search(l)] if m]
 
 def maskCurrent(data, indExc, indTmp):
-	if restrictCurr:
+	if restrict_curr:
 		max_ind = np.argmin(np.abs(np.mean(data[:,indTmp])-temp))
 		return data[(data[:,indExc] <= exc[max_ind]) & (data[:,indExc] >= min_exc),:]
 	else:
@@ -30,7 +30,7 @@ def maskCurrent(data, indExc, indTmp):
 
 # TODO make plots better? low priority
 # analyze IV curves to find best excitation current (can be temperature dependent), diff B in diff files, also applies to ryx
-restrictCurr = False	# TODO make restrictCurr optional
+restrict_curr = False	# TODO make restrictCurr optional
 for file in glob.glob(work_folder+'*IV*'):
 	func = lambda x, c0: c0
 	with open(file) as fh:
@@ -73,7 +73,7 @@ for file in glob.glob(work_folder+'*IV*'):
 				resStd[i] = arrS[l]
 				break
 
-	restrictCurr = True	# TODO include in config
+	restrict_curr = True
 	if show:
 		fig, ax = plt.subplots()
 		ax.plot(temp, exc, 'o')
@@ -85,14 +85,13 @@ for file in glob.glob(work_folder+'*IV*'):
 		plt.show()
 
 # analyze Hall measurements
-# TODO define labels such as Bscan, ....
 Bfiles = glob.glob(work_folder+'*Bscan*')
 bRange = map(float, config['Analyzer']['bRange'].split(','))
 
-if len(Bfiles) != 1:
-	pass # somehow combine them so i can do it in one go
-elif len(Bfiles) == 0:
-	pass # no Bsweeps
+if len(Bfiles) == 0:
+	print "No Bsweeps!"
+elif len(Bfiles) != 1:
+	pass # calculate for each sweep and combine at the end
 else:
 	file = Bfiles[0]
 
@@ -108,23 +107,23 @@ else:
 	ind_e = getAllIndex(names, '(Bridge %d E)'%(ryx[0]))
 	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(ryx[0]))
 	
-	func = lambda x, c0, c1: c0+c1*x
+	func = lambda x, c0, c1: c0-c1*x
 	tmp, c0, c1, c0_std, c1_std, rsq = [np.zeros((len(ind_e))) for z in range(6)]
 	for i in range(len(ind_e)):
 		indTmp, indB, indExc = ind_t[i], ind_b[i], ind_e[i]
 		indRes, indRst = ind_r[2*i], ind_r[2*i+1]
 
 		mdata = data[~np.isnan(data[:,indExc]),:]
-		#exc /= 0.6
 		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values
-		#exc *= 0.6
 
-		s_ind = np.argmin(np.abs(mdata[:,indB]-bRange[1])) # TODO maybe seperate left and right border
-		e_ind = np.argmin(np.abs(mdata[:,indB]+bRange[0]))
+		s_ind = np.argmin(np.abs(mdata[:,indB]-bRange[0]))
+		e_ind = np.argmin(np.abs(mdata[:,indB]-bRange[1]))
+		if s_ind > e_ind:
+			s_ind, e_ind = e_ind, s_ind
 
-		plt.plot(mdata[s_ind:e_ind,indB], mdata[s_ind:e_ind, indRes],'o')
-		plt.title("%f"%(mdata[0,indTmp]))
-		plt.show()
+		#plt.plot(mdata[s_ind:e_ind,indB], mdata[s_ind:e_ind, indRes],'o')
+		#plt.title("%f"%(mdata[0,indTmp]))
+		#plt.show()
 
 		popt, pcov = curve_fit(func, mdata[s_ind:e_ind,indB], mdata[s_ind:e_ind,indRes], sigma=mdata[s_ind:e_ind,indRst])
 		pstd = np.diag(pcov)**0.5
@@ -139,15 +138,13 @@ else:
 	
 	c0_to_max = np.abs(c0/np.nanmax(data[:,[ind_r[2*l] for l in range(len(ind_e))]], axis=0))
 	print 'Mean Hall offset ratio c0/max(ryx)=%.3f'%(np.mean(c0_to_max))
-	print c1, c1_std
 
-	n = 1./(c1*q)*1e-6
-	dn = (-1./(q*c1**2))*c1_std*1e-6
+	n = 1./(c1*q)
+	dn = np.abs((-1./(q*c1**2))*c1_std)
+	carrier_type = 'electron' if np.mean(n) >= 0.0 else 'hole'
+	print 'Carrier type: ' + carrier_type
 	if np.mean(n) < 0.0:
-		print 'Carrier type: hole'
 		n *= -1
-	else:
-		print 'Carrier type: electron'
 
 	# use iv-res to calculate muh
 	int_res, int_res_std = [np.zeros((len(tmp))) for z in range(2)]
@@ -156,12 +153,14 @@ else:
 	int_res[0], int_res[-1] = res[-1], res[0]
 	int_res_std[0], int_res_std[-1] = resStd[-1], resStd[0]
 
-	muh = (-c1/int_res)
-	dmuh = ((1./int_res)*c1_std+(+c1/int_res**2)*int_res_std)
+	muh = np.abs(c1/int_res)
+	dmuh = np.sqrt(((1./int_res)**2*c1_std**2+(+c1/int_res**2)**2*int_res_std**2))
 	
-	header = 'Temperature (K),Resistivity (mOhm*cm),Resistivity Std (mOhm*cm),Hall Coefficient (Ohm*cm/T),Hall Coefficient Std (Ohm*m/T)'
+	header = 'Hall data for single carrier (type=%s)'%(carrier_type)
+	header += '\nTemperature (K),Resistivity (mOhm*cm),Resistivity Std (mOhm*cm),Hall Coefficient (cm^3/C),Hall Coefficient Std (cm^3/C)'
 	header += ',Carrier Density (1/cm^3),Carrier Density Std (1/cm^3),Hall Mobility (cm^2/V*s),Hall Mobility Std (cm^2/V*s)'
-	np.savetxt(work_folder + 'final.dat', np.vstack((tmp, int_res*1e5, int_res_std*1e5, -c1*1e2, c1_std*1e2, n, dn, muh*1e4, dmuh*1e4)).T, header=header, delimiter=',')
+	header += '\n'
+	#np.savetxt(work_folder + 'final.dat', np.vstack((tmp, int_res*1e5, int_res_std*1e5, c1*1e6, c1_std*1e6, n*1e-6, dn*1e-6, muh*1e4, dmuh*1e4)).T, header=header, delimiter=',')
 
 	# magnetoresistivity ????
 	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(rxx[0]))
@@ -170,16 +169,11 @@ else:
 		indRes, indRst = ind_r[2*i], ind_r[2*i+1]
 
 		mdata = data[~np.isnan(data[:,indExc]),:]
-		exc /= 0.8
 		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values
-		exc *= 0.8
 
 		#plt.plot(mdata[:,indB], mdata[:,indRes], 'o', label='%f'%(mdata[0,indTmp]))
 		#plt.legend()
 		#plt.show()
-
-	plt.errorbar(tmp, muh, yerr=dmuh, fmt='o')
-	plt.show()
 
 	if show:
 		plt.plot(tmp, c1)

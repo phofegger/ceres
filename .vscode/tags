@@ -1,0 +1,119 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+B	../import_ppms.py	/^B = config['Options'].getfloat('B')$/;"	kind:variable	line:32
+Bfiles	../dc_transport.py	/^Bfiles = glob.glob(work_folder+'*Bscan*')$/;"	kind:variable	line:88
+Rxx	../import_ppms.py	/^Rxx = map(int, config['Setup']['rxx'].replace(' ','').split(','))$/;"	kind:variable	line:25
+Ryx	../import_ppms.py	/^Ryx = map(int, config['Setup']['ryx'].replace(' ','').split(','))$/;"	kind:variable	line:26
+T	../import_ppms.py	/^T = config['Options'].getfloat('T')$/;"	kind:variable	line:31
+Tfiles	../dc_transport.py	/^Tfiles = sorted(glob.glob(work_folder+'*Tscan*'), key=lambda x: float(x[x.rfind('\/')+1:x.rfind('T_')]))$/;"	kind:variable	line:186
+TreeNode	../import_ppms.py	/^class TreeNode(list):$/;"	kind:class	line:62
+__init__	../import_ppms.py	/^	def __init__(self, iterable=(), type='', comment='', args=[]):$/;"	kind:member	line:63
+__repr__	../import_ppms.py	/^	def __repr__(self):$/;"	kind:member	line:78
+add_cols	../import_ppms.py	/^add_cols = config['Files']['ignore_columns'].split(', ')$/;"	kind:variable	line:11
+avg_std	../dc_transport.py	/^		avg_std = np.mean(arrS)$/;"	kind:variable	line:67
+bRange	../dc_transport.py	/^bRange = map(float, config['Analyzer']['bRange'].split(','))$/;"	kind:variable	line:89
+c0_to_max	../dc_transport.py	/^	c0_to_max = np.abs(c0\/np.nanmax(data[:,[ind_r[2*l] for l in range(len(ind_e))]], axis=0))$/;"	kind:variable	line:139
+calc_mr	../import_ppms.py	/^calc_mr = config['Options'].getboolean('calc_mr')$/;"	kind:variable	line:17
+calc_tree	../import_ppms.py	/^def calc_tree(node):$/;"	kind:function	line:249
+carrier_type	../dc_transport.py	/^	carrier_type = 'electron' if np.mean(n) >= 0.0 else 'hole'$/;"	kind:variable	line:144
+cols	../import_ppms.py	/^	cols = data.shape[1]$/;"	kind:variable	line:107
+combine_loop	../import_ppms.py	/^combine_loop = config['Options'].getboolean('combine_loops')$/;"	kind:variable	line:14
+comment	../dc_transport.py	/^		comment = fh.next()[2:].split(',')$/;"	kind:variable	line:101
+comment	../dc_transport.py	/^		comment = fh.next()[2:].split(',')$/;"	kind:variable	line:39
+config	../dc_transport.py	/^config = configparser.ConfigParser(inline_comment_prefixes='#')$/;"	kind:variable	line:8
+config	../import_ppms.py	/^config = configparser.ConfigParser(inline_comment_prefixes='#')$/;"	kind:variable	line:7
+cross_section	../import_ppms.py	/^cross_section = config['Setup'].getfloat('A')*1e-6$/;"	kind:variable	line:29
+data	../dc_transport.py	/^		data = np.genfromtxt(x, comments='#', delimiter=',')$/;"	kind:variable	line:198
+data	../dc_transport.py	/^	data = np.genfromtxt(file, delimiter=',')$/;"	kind:variable	line:102
+data	../dc_transport.py	/^	data = np.genfromtxt(file, delimiter=',')$/;"	kind:variable	line:46
+data	../import_ppms.py	/^	data = data[:,mask]$/;"	kind:variable	line:106
+data	../import_ppms.py	/^data = np.genfromtxt(path_data, skip_header=start_data + skip_data + 1, delimiter=',')$/;"	kind:variable	line:95
+data_folder	../import_ppms.py	/^data_folder = os.path.splitext(path_data)[0]$/;"	kind:variable	line:377
+dc_transport.py	../dc_transport.py	1;"	kind:file	line:1
+distance	../import_ppms.py	/^distance = config['Setup'].getfloat('d')*1e-3$/;"	kind:variable	line:28
+dmuh	../dc_transport.py	/^	dmuh = np.sqrt(((1.\/int_res)**2*c1_std**2+(+c1\/int_res**2)**2*int_res_std**2))$/;"	kind:variable	line:157
+dn	../dc_transport.py	/^	dn = np.abs((-1.\/(q*c1**2))*c1_std)$/;"	kind:variable	line:143
+e_ind	../dc_transport.py	/^		e_ind = np.argmin(np.abs(mdata[:,indB]-bRange[1]))$/;"	kind:variable	line:120
+file	../dc_transport.py	/^	file = Bfiles[0]$/;"	kind:variable	line:96
+func	../dc_transport.py	/^	func = lambda x, c0, c1: c0-c1*x$/;"	kind:variable	line:110
+func	../dc_transport.py	/^	func = lambda x, c0: c0$/;"	kind:variable	line:35
+getAllIndex	../dc_transport.py	/^def getAllIndex(col_names, label):$/;"	kind:function	line:20
+getAllIndex	../import_ppms.py	/^def getAllIndex(col_names, label):$/;"	kind:function	line:35
+getDenominator	../import_ppms.py	/^	def getDenominator(self):$/;"	kind:member	line:69
+has_children	../import_ppms.py	/^	def has_children(self):$/;"	kind:member	line:75
+header	../dc_transport.py	/^	header = 'Hall data for single carrier (type=%s)'%(carrier_type)$/;"	kind:variable	line:159
+import_ppms.py	../import_ppms.py	1;"	kind:file	line:1
+ind	../import_ppms.py	/^	ind = getAllIndex(names, '(Bridge %d )(R)'%(r))$/;"	kind:variable	line:120
+ind	../import_ppms.py	/^	ind = getAllIndex(names, '(Bridge %d )(S|R)'%(r))$/;"	kind:variable	line:113
+ind	../import_ppms.py	/^ind = 0$/;"	kind:variable	line:142
+indB	../dc_transport.py	/^		indB = getAllIndex(names, '(Magnetic)')[0]$/;"	kind:variable	line:200
+indE	../dc_transport.py	/^		indE = getAllIndex(names, '(Bridge %d E)'%(rxx[0]))[0]$/;"	kind:variable	line:202
+indExc	../dc_transport.py	/^		indExc = ind_e[i]$/;"	kind:variable	line:50
+indR	../dc_transport.py	/^		indR = getAllIndex(names, '(Bridge %d R)'%(rxx[0]))[0]$/;"	kind:variable	line:201
+indRes	../dc_transport.py	/^		indRes = ind_r[2*i]$/;"	kind:variable	line:52
+indRst	../dc_transport.py	/^		indRst = ind_r[2*i+1]$/;"	kind:variable	line:53
+indT	../dc_transport.py	/^		indT = getAllIndex(names, '(Temperature)')[0]$/;"	kind:variable	line:199
+indTmp	../dc_transport.py	/^		indTmp = ind_t[i]$/;"	kind:variable	line:51
+ind_b	../dc_transport.py	/^	ind_b = getAllIndex(names, '(Magnetic)')$/;"	kind:variable	line:106
+ind_e	../dc_transport.py	/^	ind_e = getAllIndex(names, '(Bridge %d E)'%(rxx[0]))$/;"	kind:variable	line:43
+ind_e	../dc_transport.py	/^	ind_e = getAllIndex(names, '(Bridge %d E)'%(ryx[0]))$/;"	kind:variable	line:107
+ind_r	../dc_transport.py	/^	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(rxx[0]))$/;"	kind:variable	line:166
+ind_r	../dc_transport.py	/^	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(rxx[0]))$/;"	kind:variable	line:44
+ind_r	../dc_transport.py	/^	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(ryx[0]))$/;"	kind:variable	line:108
+ind_t	../dc_transport.py	/^	ind_t = getAllIndex(names, '(Temp)')$/;"	kind:variable	line:105
+ind_t	../dc_transport.py	/^	ind_t = getAllIndex(names, '(Temp)')$/;"	kind:variable	line:42
+loop	../dc_transport.py	/^			loop = fh.next().split(' ')[1:]$/;"	kind:variable	line:194
+make_tree	../import_ppms.py	/^def make_tree(fo, node, comment=''):$/;"	kind:function	line:214
+mask	../dc_transport.py	/^		mask = ~np.isnan(data[:,indExc])$/;"	kind:variable	line:55
+mask	../import_ppms.py	/^	mask = ~np.isnan(data[0])$/;"	kind:variable	line:99
+maskCurrent	../dc_transport.py	/^def maskCurrent(data, indExc, indTmp):$/;"	kind:function	line:24
+max_nest_depth	../import_ppms.py	/^max_nest_depth = config['Options'].getint('max_depth')$/;"	kind:variable	line:24
+mdata	../dc_transport.py	/^		mdata = data[mask,:]$/;"	kind:variable	line:56
+mdata	../dc_transport.py	/^		mdata = data[~np.isnan(data[:,indE]),:]$/;"	kind:variable	line:203
+mdata	../dc_transport.py	/^		mdata = data[~np.isnan(data[:,indExc]),:]$/;"	kind:variable	line:116
+mdata	../dc_transport.py	/^		mdata = data[~np.isnan(data[:,indExc]),:]$/;"	kind:variable	line:171
+mdata	../dc_transport.py	/^		mdata = maskCurrent(mdata, indE, indT)$/;"	kind:variable	line:205
+mdata	../dc_transport.py	/^		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values$/;"	kind:variable	line:117
+mdata	../dc_transport.py	/^		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values$/;"	kind:variable	line:172
+minE	../dc_transport.py	/^	minE = 3 # min excitation$/;"	kind:variable	line:48
+min_exc	../dc_transport.py	/^min_exc = config['Analyzer'].getfloat('min_exc')$/;"	kind:variable	line:16
+muh	../dc_transport.py	/^	muh = np.abs(c1\/int_res)$/;"	kind:variable	line:156
+n	../dc_transport.py	/^	n = 1.\/(c1*q)$/;"	kind:variable	line:142
+names	../dc_transport.py	/^			names = fh.next()[2:].split(',')$/;"	kind:variable	line:196
+names	../dc_transport.py	/^		names = fh.next().split(',')$/;"	kind:variable	line:100
+names	../dc_transport.py	/^		names = fh.next().split(',')$/;"	kind:variable	line:38
+names	../import_ppms.py	/^	names = names[:cols][mask]$/;"	kind:variable	line:105
+outlier_perc	../import_ppms.py	/^outlier_perc = config['Options'].getfloat('outlier_perc')$/;"	kind:variable	line:30
+path_data	../import_ppms.py	/^path_data = config['Files']['data']$/;"	kind:variable	line:9
+path_seq	../import_ppms.py	/^path_seq = config['Files']['sequence']$/;"	kind:variable	line:10
+pstd	../dc_transport.py	/^			pstd = np.diag(pcov)**0.5$/;"	kind:variable	line:64
+pstd	../dc_transport.py	/^		pstd = np.diag(pcov)**0.5$/;"	kind:variable	line:129
+q	../dc_transport.py	/^q = config['Analyzer'].getfloat('q')$/;"	kind:variable	line:14
+remove_outlier	../import_ppms.py	/^remove_outlier = config['Options'].getboolean('remove_outlier')$/;"	kind:variable	line:15
+restrict_curr	../dc_transport.py	/^	restrict_curr = True$/;"	kind:variable	line:76
+restrict_curr	../dc_transport.py	/^restrict_curr = False	# TODO make restrictCurr optional$/;"	kind:variable	line:33
+reverse_polarity	../import_ppms.py	/^reverse_polarity = not config['Setup'].getboolean('pol')$/;"	kind:variable	line:18
+root	../import_ppms.py	/^root = TreeNode(type='root')$/;"	kind:variable	line:83
+rxx	../dc_transport.py	/^rxx = map(int, config['Setup']['rxx'].replace(' ','').split(','))$/;"	kind:variable	line:11
+ryx	../dc_transport.py	/^ryx = map(int, config['Setup']['ryx'].replace(' ','').split(','))$/;"	kind:variable	line:12
+s_ind	../dc_transport.py	/^		s_ind = np.argmin(np.abs(mdata[:,indB]-bRange[0]))$/;"	kind:variable	line:119
+saveData	../import_ppms.py	/^def saveData(comment, start, end, steps, mode, lc, cl, com):$/;"	kind:function	line:39
+save_tree_data	../import_ppms.py	/^def save_tree_data(node, depth=0, pos=0):$/;"	kind:function	line:262
+search_loop	../import_ppms.py	/^def search_loop(fo, depth):$/;"	kind:function	line:143
+show	../dc_transport.py	/^show = config['Analyzer'].getboolean('show')$/;"	kind:variable	line:15
+skip_data	../import_ppms.py	/^skip_data = config['Files'].getint('skip_data')$/;"	kind:variable	line:23
+start_data	../import_ppms.py	/^start_data = 0$/;"	kind:variable	line:86
+strip_cols	../import_ppms.py	/^strip_cols = config['Options'].getboolean('strip_cols')$/;"	kind:variable	line:13
+symmetrize	../import_ppms.py	/^symmetrize = config['Options'].getboolean('symmetrize')$/;"	kind:variable	line:16
+tmp	../dc_transport.py	/^		tmp = np.mean(mdata[:,indTmp])$/;"	kind:variable	line:57
+tot	../import_ppms.py	/^	tot = 0$/;"	kind:variable	line:130
+unit	../import_ppms.py	/^unit = config['Options']['unit']$/;"	kind:variable	line:19
+units	../import_ppms.py	/^units = {'Ohm*m': 1, 'Ohm*cm': 1e2, 'mOhm*cm': 1e5}$/;"	kind:variable	line:20
+work_folder	../dc_transport.py	/^work_folder = os.path.splitext(config['Files']['data'])[0] + '\/'$/;"	kind:variable	line:13
+ybar	../dc_transport.py	/^		ybar = np.mean(yi)\/len(yi)$/;"	kind:variable	line:136
+yh	../dc_transport.py	/^		yh = func(mdata[s_ind:e_ind,indB],*popt)$/;"	kind:variable	line:134
+yi	../dc_transport.py	/^		yi = mdata[s_ind:e_ind,indRes]$/;"	kind:variable	line:135
