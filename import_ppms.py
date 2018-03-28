@@ -38,52 +38,6 @@ def getAllIndex(col_names, label):
 	regex = re.compile('.*'+label+'.*')
 	return [i for i, l in enumerate(col_names) for m in [regex.search(l)] if m]
 
-def saveData(comment, start, end, steps, mode, lc, cl, com):
-	global T, B, data_folder, names, cols
-	global symmetrize, calc_mr
-	B, T = args['B'], args['T']
-
-	var, fun = {'T': [B, 'T'], 'B': [T, 'K']}, {0: np.linspace, 2: lambda x,y,z: np.logspace(np.log10(x), np.log10(y), z)}
-	points = fun[mode](start, end, steps)
-
-	if comment == 'Bscan':
-		pass
-	commentline = '%s %f %f %d %d %d'%(comment, start, end, steps, mode, lc/steps)
-	if cl:
-		cdata = np.hstack(np.vsplit(cdata, steps))		
-		commentline += '\n'+','.join([item for sublist in [names]*steps for item in sublist])
-		commentline += '\n'+','.join([item for sublist in [['%.1f%s'%(x, {'T': 'K', 'B': 'T'}[com[2]])]*cols for x in points] for item in sublist])
-	else:
-		commentline += '\n'+','.join(names)
-		commentline += '\n'
-	filename = '%s/%s.dat'%(data_folder, '%.1f%s_%s'%(var[com[2]][0], var[com[2]][1], comment))
-	np.savetxt(filename, cdata, header=commentline, delimiter=',')
-	for line in fileinput.input(filename, inplace=True):
-		print re.sub('nan', '', line.rstrip())
-
-class TreeNode(list):
-	def __init__(self, iterable=(), type='', comment='', args=[]):
-		self.type = type
-		self.comment = comment
-		self.args = args
-		list.__init__(self, iterable)
-
-	def getDenominator(self):
-		if len(self) != 0 and any(len(child) != 0 for child in self):
-			return self[0].getDenominator()
-		if len(self) != 0 and not any(len(child) != 0 for child in self):
-			return np.array([child.args for child in self])
-
-	def has_children(self):
-		return True if len(self) > 0 else False
-
-	def __repr__(self):
-		if len(self) != 0:
-			return '%s [' % (self.type) + ', '.join(str(item) for item in self) + ']'
-		else:
-			return '%s' % (self.type)
-root = TreeNode(type='root')
-
 # determine data file structure
 start_data = 0
 with open(path_data, 'r') as file:
@@ -140,78 +94,28 @@ if remove_outlier:
 			tot += np.sum(outlier)
 	print "Removed %d outliers from %d data points"%(tot, data.shape[0])
 
-# analyze sequence file
-ind = 0
-def search_loop(fo, depth):
-	count = 0
-	comment = ""
-	containsloop = False
-	loop_info = []
-	global T, B, ind, data_folder
-	while(True):
-		line = fo.readline()
+# tree structure
+class TreeNode(list):
+	def __init__(self, iterable=(), type='', comment='', args=[]):
+		self.type = type
+		self.comment = comment
+		self.args = args
+		list.__init__(self, iterable)
 
-		if line == "":
-			print "reached EOF with ", count
-			return count
-		com = line[:3]
+	def getDenominator(self):
+		if len(self) != 0 and any(len(child) != 0 for child in self):
+			return self[0].getDenominator()
+		if len(self) != 0 and not any(len(child) != 0 for child in self):
+			return np.array([child.args for child in self])
 
-		if com in ['ENT', 'ENB']:
-			return count, containsloop
+	def has_children(self):
+		return True if len(self) > 0 else False
 
-		elif com == 'REM':
-			if combine_loop and depth == max_nest_depth:
-				comment = (line[4:]).replace('-','').replace(' ','').replace('\n','').replace('\r','')
-
-		elif com in ['LPI']:
-			lc = int(line.split(' ')[13])
-			containsloop = True
-			if combine_loop:
-				count += lc
-				if depth == max_nest_depth:
-					print "make IV file with size %d and T=%f and B=%f"%(count, T, B)
-					ind += count
-					count = 0
-			else:
-				if depth > max_nest_depth:
-					print "make IV file with size %d and T=%f and B=%f"%(count, T, B)
-					ind += count
-				else:
-					count += lc
-
-		elif com in ['LPT', 'LPB']:
-			args = [func(line.split(' ')[i]) for func,i in [[float,2],[float,3],[int,5],[int,-2]]]
-			lc, cl = search_loop(fo, depth+1)
-			lc *= steps
-			containsloop = True
-			if combine_loop:
-				count += lc
-				if depth == max_nest_depth:
-					cdata = data[ind:ind+count]
-					saveData(comment, start, end, steps, mode, lc, cl, com)
-					ind += count
-					count = 0
-			else:
-				if depth > max_nest_depth:
-					print "make file with size %d and %s=%f and name=%s"%(lc, 'T' if com[2] == 'B' else 'B', T if com[2] == 'B' else B, comment)
-					ind += lc
-				else:
-					count += lc
-
-		elif com == 'FLD':
-			B = float(line.split(' ')[2])*1e-4
-
-		elif com == 'TMP':
-			T = float(line.split(' ')[2])
-
-		elif com == 'RES':
-			count += 1
-
-		elif com in ['CHN', 'CDF', 'WAI']:
-			pass
-
+	def __repr__(self):
+		if len(self) != 0:
+			return '%s [' % (self.type) + ', '.join(str(item) for item in self) + ']'
 		else:
-			print "unknown command"
+			return '%s' % (self.type)
 
 def make_tree(fo, node, comment=''):
 	while(True):
@@ -384,13 +288,15 @@ def save_tree_data(node, depth=0, pos=0):
 					header += '\n'+','.join(names)
 					header += '\n'
 
-				#np.savetxt(filename, cdata, header=header, delimiter=',')
+				np.savetxt(filename, cdata, header=header, delimiter=',')
 				for line in fileinput.input(filename, inplace=True):
 					print re.sub('nan', '', line.rstrip())
 				pos += child.size*child.args[2]
 		else:
 			pos = save_tree_data(child, depth+1, pos)
-			
+
+# analyze sequence file
+root = TreeNode(type='root')	
 data_folder = os.path.splitext(path_data)[0]
 with open(path_seq, 'r') as seq_file:
 	make_tree(seq_file, root)
