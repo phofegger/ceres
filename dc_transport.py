@@ -14,7 +14,9 @@ work_folder = os.path.splitext(config['Files']['data'])[0] + '/'
 q = config['Analyzer'].getfloat('q')
 show = config['Options'].getboolean('show')
 min_exc = config['Analyzer'].getfloat('min_exc')
-
+unit = config['Options']['unit']
+units = {'Ohm': 1, 'Ohm*m': 1, 'Ohm*cm': 1e-2, 'mOhm*cm': 1e-5}
+symmetrize = config['Options'].getboolean('symmetrize')
 
 # helper functions
 def getAllIndex(col_names, label):
@@ -44,6 +46,7 @@ for file in glob.glob(work_folder+'*IV*'):
 	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(rxx[0]))
 
 	data = np.genfromtxt(file, delimiter=',')
+	data[:,ind_r] *= units[unit]	# convert back to regular SI unit
 	temp, exc, res, resStd = [np.zeros((len(ind_e))) for i in range(4)] # TODO give better names to avoid replacing
 	minE = 3 # min excitation
 	for i in range(len(ind_e)):
@@ -105,7 +108,10 @@ else:
 	ind_t = getAllIndex(names, '(Temp)')
 	ind_b = getAllIndex(names, '(Magnetic)')
 	ind_e = getAllIndex(names, '(Bridge %d E)'%(ryx[0]))
-	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(ryx[0]))
+	if symmetrize:
+		ind_r = getAllIndex(names, '(Bridge %d )(Std\. Dev\. a|Resistivity a)'%(ryx[0]))
+	else:
+		ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(ryx[0]))
 	
 	func = lambda x, c0, c1: c0-c1*x
 	tmp, c0, c1, c0_std, c1_std, rsq = [np.zeros((len(ind_e))) for z in range(6)]
@@ -160,20 +166,7 @@ else:
 	header += '\nTemperature (K),Resistivity (mOhm*cm),Resistivity Std (mOhm*cm),Hall Coefficient (cm^3/C),Hall Coefficient Std (cm^3/C)'
 	header += ',Carrier Density (1/cm^3),Carrier Density Std (1/cm^3),Hall Mobility (cm^2/V*s),Hall Mobility Std (cm^2/V*s)'
 	header += '\n'
-	#np.savetxt(work_folder + 'final.dat', np.vstack((tmp, int_res*1e5, int_res_std*1e5, c1*1e6, c1_std*1e6, n*1e-6, dn*1e-6, muh*1e4, dmuh*1e4)).T, header=header, delimiter=',')
-
-	# magnetoresistivity ????
-	ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(rxx[0]))
-	for i in range(len(ind_e)):
-		indTmp, indB, indExc = ind_t[i], ind_b[i], ind_e[i]
-		indRes, indRst = ind_r[2*i], ind_r[2*i+1]
-
-		mdata = data[~np.isnan(data[:,indExc]),:]
-		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values
-
-		#plt.plot(mdata[:,indB], mdata[:,indRes], 'o', label='%f'%(mdata[0,indTmp]))
-		#plt.legend()
-		#plt.show()
+	np.savetxt(work_folder + 'final.dat', np.vstack((tmp, int_res*1e5, int_res_std*1e5, c1*1e6, c1_std*1e6, n*1e-6, dn*1e-6, muh*1e4, dmuh*1e4)).T, header=header, delimiter=',')
 
 	if show:
 		plt.plot(tmp, c1)
@@ -182,7 +175,7 @@ else:
 		plt.show()
 
 
-# analyze resistivity
+# analyze resistivity # TODO
 Tfiles = sorted(glob.glob(work_folder+'*Tscan*'), key=lambda x: float(x[x.rfind('/')+1:x.rfind('T_')]))
 if len(Tfiles) == 0:		# TODO do nothing lel
 	pass

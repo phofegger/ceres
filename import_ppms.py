@@ -271,7 +271,7 @@ def save_tree_data(node, depth=0, pos=0):
 										for u in ind:
 											mr[z*num_exc+u] = (sdata[k][z*num_exc+u, ind_r]-min_val)/min_val
 									if show:
-										plt.plot(sdata[k][mask, ind_b[0]], mr[mask], 'o', label='%f'%(e))
+										plt.plot(sdata[k][mask, ind_b[0]][mr[mask]>0], mr[mask][mr[mask]>0], 'o', label='%f'%(e))
 								sdata[k] = np.hstack([sdata[k], mr.reshape(-1,1)])
 								if show:
 									plt.legend()
@@ -303,6 +303,6 @@ with open(path_seq, 'r') as seq_file:
 	root.size = calc_tree(root)
 if not os.path.exists(data_folder):
 	os.makedirs(data_folder)
-save_tree_data(root)
+save_tree_data(root) # TODO save sample data too
 
 print data.shape, root.size
