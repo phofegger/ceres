@@ -10,7 +10,7 @@ config.read('config.ini')
 
 rxx = map(int, config['Setup']['rxx'].replace(' ','').split(','))
 ryx = map(int, config['Setup']['ryx'].replace(' ','').split(','))
-work_folder = os.path.splitext(config['Files']['data'])[0] + '/'
+work_folder = os.path.split(config['Files']['data'])[0] + '/' + config['Files']['title'] + '/'
 q = config['Analyzer'].getfloat('q')
 show = config['Options'].getboolean('show')
 min_exc = config['Analyzer'].getfloat('min_exc')

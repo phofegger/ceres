@@ -1,5 +1,5 @@
 import numpy as np
-import re, os, fileinput
+import re, os, fileinput, shutil
 import configparser
 import matplotlib.pyplot as plt
 
@@ -8,6 +8,7 @@ config = configparser.ConfigParser(inline_comment_prefixes='#')
 config.read('config.ini')
 path_data = config['Files']['data']
 path_seq = config['Files']['sequence']
+title = config['Files']['title']
 add_cols = config['Files']['ignore_columns'].split(', ')
 
 strip_cols = config['Options'].getboolean('strip_cols')
@@ -297,12 +298,21 @@ def save_tree_data(node, depth=0, pos=0):
 
 # analyze sequence file
 root = TreeNode(type='root')	
-data_folder = os.path.splitext(path_data)[0]
 with open(path_seq, 'r') as seq_file:
 	make_tree(seq_file, root)
 	root.size = calc_tree(root)
+
+# save data on disk grouped as in tree structure
+data_folder = os.path.split(path_data)[0] + '/' + title 
 if not os.path.exists(data_folder):
 	os.makedirs(data_folder)
-save_tree_data(root) # TODO save sample data too
+save_tree_data(root)
+
+# save settings file
+with open(data_folder + "/config.ini", 'w') as configfile:
+	config.write(configfile)
+
+# copy raw data
+shutil.copy2(path_data, data_folder)
 
 print data.shape, root.size
