@@ -3,6 +3,7 @@ import re, os, glob, configparser
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d
+from sklearn import linear_model
 
 # read settings from config file
 config = configparser.ConfigParser(inline_comment_prefixes='#')
@@ -11,12 +12,14 @@ config.read('config.ini')
 rxx = map(int, config['Setup']['rxx'].replace(' ','').split(','))
 ryx = map(int, config['Setup']['ryx'].replace(' ','').split(','))
 work_folder = os.path.split(config['Files']['data'])[0] + '/' + config['Files']['title'] + '/'
-q = config['Analyzer'].getfloat('q')
-show = config['Options'].getboolean('show')
-min_exc = config['Analyzer'].getfloat('min_exc')
 unit = config['Options']['unit']
-units = {'Ohm': 1, 'Ohm*m': 1, 'Ohm*cm': 1e-2, 'mOhm*cm': 1e-5}
+show = config['Options'].getboolean('show')
 symmetrize = config['Options'].getboolean('symmetrize')
+
+q = config['Analyzer'].getfloat('q')
+min_exc = config['Analyzer'].getfloat('min_exc')
+max_exc = config['Analyzer'].getfloat('max_exc')
+restrict_exc = config['Analyzer'].getboolean('restrict_exc')
 
 # helper functions
 def getAllIndex(col_names, label):
@@ -24,19 +27,37 @@ def getAllIndex(col_names, label):
 	return [i for i, l in enumerate(col_names) for m in [regex.search(l)] if m]
 
 def maskCurrent(data, indExc, indTmp):
-	if restrict_curr:
+	if restrict_exc:
 		max_ind = np.argmin(np.abs(np.mean(data[:,indTmp])-temp))
-		return data[(data[:,indExc] <= exc[max_ind]) & (data[:,indExc] >= min_exc),:]
+		max_e = np.max([exc[max_ind], max_exc])
+		return data[(data[:,indExc] <= max_e) & (data[:,indExc] >= min_exc),:]
 	else:
 		return data
 
-# TODO make plots better? low priority
-# analyze IV curves to find best excitation current (can be temperature dependent), diff B in diff files, also applies to ryx
-restrict_curr = False	# TODO make restrictCurr optional
+def fit_ransac(datax, datay, function, datay_err=None):
+	ransac = linear_model.RANSACRegressor(base_estimator=linear_model.LinearRegression(fit_intercept=True))	
+
+	# find outlier
+	score = -np.inf	
+	for lll in range(10):		
+		ransac.fit(datax.reshape(-1,1), datay.reshape(-1,1))
+		nscore = ransac.score(datax.reshape(-1,1), datay.reshape(-1,1)) 
+		if nscore > score:
+			pfit = [ransac.estimator_.intercept_[0], ransac.estimator_.coef_[0][0]]
+			inlier_mask = ransac.inlier_mask_
+			outlier_mask = np.logical_not(inlier_mask)
+			score = nscore
+	
+	# calculate fit parameter and error
+	popt, pcov = curve_fit(function, datax[inlier_mask], datay[inlier_mask], sigma=datay_err[inlier_mask])
+	return popt, np.sqrt(np.diag(pcov)), inlier_mask, outlier_mask 
+	
+# analyze IV curves to find best excitation current for each temperature
+units = {'Ohm': 1, 'Ohm*m': 1, 'Ohm*cm': 1e-2, 'mOhm*cm': 1e-5}
 for file in glob.glob(work_folder+'*IV*'):
-	func = lambda x, c0: c0
+	func = lambda x, c0: c0+x*0
 	with open(file) as fh:
-		fh.next() # TODO maybe needed
+		fh.next() # skip sweep parameter
 		names = fh.next().split(',')
 		comment = fh.next()[2:].split(',')
 
@@ -66,17 +87,19 @@ for file in glob.glob(work_folder+'*IV*'):
 			popt, pcov = curve_fit(func, mdata[:l,indExc], mdata[:l,indRes], sigma=mdata[:l,indRst])
 			pstd = np.diag(pcov)**0.5
 			arrE[l], arrR[l], arrS[l] = mdata[minE+l,indExc], popt[0], pstd[0]
+		#if show:
+		#	plt.plot(arrE[minE:],arrR[minE:],'ro')
+		#	plt.show()
 
-		avg_std = np.mean(arrS)
+		avg_std = np.mean(arrS[minE:])
 		for l in range(len(arrE)-1, minE-1, -1):
-			if arrS[l] < 1.5*avg_std: 		# TODO integrate into config?
+			if arrS[l] < 1.5*avg_std:
 				temp[i] = tmp
-				exc[i] = 1100.#arrE[l]		# TODO change to a fixed if desired
+				exc[i] = arrE[l]
 				res[i] = arrR[l]
 				resStd[i] = arrS[l]
 				break
-
-	restrict_curr = True
+	
 	if show:
 		fig, ax = plt.subplots()
 		ax.plot(temp, exc, 'o')
@@ -113,41 +136,50 @@ else:
 	else:
 		ind_r = getAllIndex(names, '(Bridge %d )(S|R)'%(ryx[0]))
 	
-	func = lambda x, c0, c1: c0-c1*x
-	tmp, c0, c1, c0_std, c1_std, rsq = [np.zeros((len(ind_e))) for z in range(6)]
+	fun = lambda x, a, b: a+b*x
+	tmp, c0, c1, c0_std, c1_std = [np.zeros((len(ind_e))) for z in range(5)]
 	for i in range(len(ind_e)):
+		# index variables
 		indTmp, indB, indExc = ind_t[i], ind_b[i], ind_e[i]
 		indRes, indRst = ind_r[2*i], ind_r[2*i+1]
 
+		# restrict to only allowed values
 		mdata = data[~np.isnan(data[:,indExc]),:]
-		mdata = maskCurrent(mdata, indExc, indTmp) # restrict to only allowed values
+		mdata = maskCurrent(mdata, indExc, indTmp)
 
+		# restrict magnetic field range
 		s_ind = np.argmin(np.abs(mdata[:,indB]-bRange[0]))
 		e_ind = np.argmin(np.abs(mdata[:,indB]-bRange[1]))
 		if s_ind > e_ind:
 			s_ind, e_ind = e_ind, s_ind
-
-		#plt.plot(mdata[s_ind:e_ind,indB], mdata[s_ind:e_ind, indRes],'o')
-		#plt.title("%f"%(mdata[0,indTmp]))
-		#plt.show()
-
-		popt, pcov = curve_fit(func, mdata[s_ind:e_ind,indB], mdata[s_ind:e_ind,indRes], sigma=mdata[s_ind:e_ind,indRst])
-		pstd = np.diag(pcov)**0.5
+		mdata = mdata[s_ind:e_ind,:]
+		
+		# find outlier and fit linear function
+		fit_data = fit_ransac(mdata[:,indB], mdata[:,indRes], fun, mdata[:,indRst])
+		pfit, perr, inlier_mask, outlier_mask = fit_data
+		
 		tmp[i] = np.mean(mdata[:,indTmp])
-		c0[i], c0_std[i] = popt[0], pstd[0]
-		c1[i], c1_std[i] = popt[1], pstd[1]
-
-		yh = func(mdata[s_ind:e_ind,indB],*popt)
-		yi = mdata[s_ind:e_ind,indRes]
-		ybar = np.mean(yi)/len(yi)
-		rsq[i] = np.sum((yh-ybar)**2)/np.sum((yi-ybar)**2) # R^2 value
+		c0[i], c0_std[i] = pfit[0], perr[0]
+		c1[i], c1_std[i] = pfit[1], perr[1]
+		
+		if show:
+			plt.errorbar(mdata[inlier_mask,indB], mdata[inlier_mask,indRes], yerr=mdata[inlier_mask,indRst],
+						fmt='o', ms=10, alpha=0.5, c='yellowgreen', label='Inliers')
+			plt.errorbar(mdata[outlier_mask,indB], mdata[outlier_mask,indRes], yerr=mdata[outlier_mask,indRst],
+						fmt='o', ms=10, alpha=0.5, c='gold', label='Outliers')
+			plt.scatter(mdata[:,indB], fun(mdata[:,indB], pfit[0], pfit[1]),
+						c='violet', s=50, label='fit')			
+			plt.title("%f"%(tmp[i]))
+			plt.ylim([np.min(mdata[:,indRes]), np.max(mdata[:,indRes])])
+			plt.legend()
+			plt.show()
 	
 	c0_to_max = np.abs(c0/np.nanmax(data[:,[ind_r[2*l] for l in range(len(ind_e))]], axis=0))
 	print 'Mean Hall offset ratio c0/max(ryx)=%.3f'%(np.mean(c0_to_max))
 
 	n = 1./(c1*q)
 	dn = np.abs((-1./(q*c1**2))*c1_std)
-	carrier_type = 'electron' if np.mean(n) >= 0.0 else 'hole'
+	carrier_type = 'electron' if np.mean(n) < 0.0 else 'hole'
 	print 'Carrier type: ' + carrier_type
 	if np.mean(n) < 0.0:
 		n *= -1
@@ -173,7 +205,6 @@ else:
 		plt.show()
 		plt.errorbar(tmp, n, yerr=dn, fmt='o')
 		plt.show()
-
 
 # analyze resistivity # TODO
 Tfiles = sorted(glob.glob(work_folder+'*Tscan*'), key=lambda x: float(x[x.rfind('/')+1:x.rfind('T_')]))

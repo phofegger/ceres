@@ -85,14 +85,13 @@ for r in Ryx:
 # remove the outliers using IQR method due to big absolute value difference, relative error would be better f.e. big MR values
 if remove_outlier:
 	tot = 0
-	for i, name in enumerate(names):
-		if 'Std.' in name:
-			q1,q2 = np.nanpercentile(data[:,i], [0,outlier_perc])
-			outlier = ~np.isnan(data[:,i])
-			outlier[outlier] &= data[outlier,i] > q2*1.5
-			data[outlier, :] = np.nan
-			#avg, std = np.nanmean(data[:,i]), np.nanstd(data[:,i])
-			tot += np.sum(outlier)
+	for r in Rxx + Ryx:
+		ind = getAllIndex(names, '(Bridge %d )(S|R)'%(r))
+		q1, q2 = np.nanpercentile(data[:,ind[1]], [0,outlier_perc])
+		outlier = ~np.isnan(data[:,i])
+		outlier[outlier] &= data[outlier, ind[1]] > q2*1.5
+		data[outlier, :] = np.nan
+		tot += np.sum(outlier)
 	print "Removed %d outliers from %d data points"%(tot, data.shape[0])
 
 # tree structure
@@ -188,7 +187,8 @@ def save_tree_data(node, depth=0, pos=0):
 				filename = '%s/%s_%s.dat'%(data_folder, var[child.type[2]], child.comment)
 				header = '%s %f %f %d %d %d'%(child.comment, start, end, steps, mode, child.size*steps/child.args[2])
 				if any(len(cchild) != 0 for cchild in child):
-					if 'Bscan' in child.comment:						
+					if 'Bscan' in child.comment:
+						kkk=0						
 						exc = child.getDenominator()
 						un_exc, un_ind = np.unique(exc, return_inverse=True)
 						ind_t = getAllIndex(names, '(Temp)')
@@ -231,7 +231,10 @@ def save_tree_data(node, depth=0, pos=0):
 											symm_rxx = np.nanmean(xx_tmp) if not np.isnan(xx_tmp2).all() else np.nan
 											symm_rxx_std = np.nanmean(xx_tmp2) if not np.isnan(xx_tmp2).all() else np.nan
 											symm_ryx = np.nanmean(yx_tmp) if not np.isnan(yx_tmp2).all() else np.nan
-											symm_ryx_std = np.nanmean(yx_tmp2) if not np.isnan(yx_tmp2).all() else np.nan										
+											symm_ryx_std = np.nanmean(yx_tmp2) if not np.isnan(yx_tmp2).all() else np.nan
+											if symm_ryx < symm_ryx_std:
+												#print sdata[k][z*num_exc+ind[0],ind_b], e, symm_ryx, symm_ryx_std
+												kkk += 1										
 
 										srxx[z*num_exc+ind] = symm_rxx
 										srxx[-(z+1)*num_exc+ind] = symm_rxx										
@@ -253,8 +256,7 @@ def save_tree_data(node, depth=0, pos=0):
 									plt.show()
 							cdata = np.hstack(sdata)
 							add_names = np.concatenate([add_names, [i.replace('(', 'symm. (') for i in names[getAllIndex(names, '(Bridge %d )(S|R)'%(Rxx[0]))]]])
-							add_names = np.concatenate([add_names, [i.replace('(', 'antisymm. (') for i in names[getAllIndex(names, '(Bridge %d )(S|R)'%(Ryx[0]))]]])	
-										
+							add_names = np.concatenate([add_names, [i.replace('(', 'antisymm. (') for i in names[getAllIndex(names, '(Bridge %d )(S|R)'%(Ryx[0]))]]])			
 						if calc_mr:
 							ind_r = len(names) if symmetrize else ind_rxx[0]							
 							for k in range(len(sdata)):
@@ -266,7 +268,10 @@ def save_tree_data(node, depth=0, pos=0):
 										mask[z::len(un_ind)] = True
 									maskdata = np.full(np.sum(mask), np.nan)
 									data_points = len(maskdata)/len(ind)
-									min_val = sdata[k][mask][np.nanargmin(np.abs(sdata[k][mask,ind_b[0]])), ind_r]
+									try:
+										min_val = sdata[k][mask][np.nanargmin(np.abs(sdata[k][mask,ind_b[0]])), ind_r]
+									except ValueError:
+										min_val = np.nan
 									num_exc = len(un_ind)
 									for z in range(data_points):
 										for u in ind:
